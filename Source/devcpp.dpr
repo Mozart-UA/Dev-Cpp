@@ -20,10 +20,9 @@
 program devcpp;
 {$R 'icons.res' 'icons.rc'}
 {$R 'DefaultFiles.res' 'DefaultFiles.rc'}
-{%File 'LangIDs.inc'}
 
 uses
-  FastMM4 in 'FastMM4.pas',
+  FastMM5 in 'FastMM5.pas',
   Windows,
   Forms,
   sysUtils,
@@ -96,6 +95,20 @@ var
   Buffer: array[0..MAX_PATH] of char;
   PrevInstance: THandle;
 begin
+  // Configure memory manager
+  {$IFDEF FASTMM_DEBUG_MODE}
+    FastMM_LogToFileEvents := FastMM_LogToFileEvents + [mmetUnexpectedMemoryLeakDetail, mmetUnexpectedMemoryLeakSummary];
+    FastMM_MessageBoxEvents := FastMM_MessageBoxEvents + [mmetUnexpectedMemoryLeakSummary];
+    if FastMM_LoadDebugSupportLibrary then
+    begin
+      FastMM_EnterDebugMode;
+    end else
+    begin
+      MessageBox(0, FastMM_DebugSupportLibraryNotAvailableError, FastMM_DebugSupportLibraryNotAvailableError_Caption, MB_OK or MB_ICONERROR or MB_TASKMODAL or MB_DEFAULT_DESKTOP_ONLY);
+      Halt(217);
+    end;
+  {$ENDIF}
+
   // Check for previous instances (only allow once instance)
   // If we are able to find a previous instance, activate that one instead
   PrevInstance := GetPreviousInstance;
