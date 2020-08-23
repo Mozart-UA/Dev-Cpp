@@ -146,7 +146,8 @@ begin
       Continue;
 
     case PropType(Obj, PropName) of
-      tkString,
+        tkUString,
+        tkString,
         tkLString,
         tkWString: SetStrProp(Obj, PropName, fINI.ReadString(Section, PropName, ''));
 
@@ -181,7 +182,8 @@ begin
 
       // 11 Jul 2002: mandrav: added double quotes around strings.
       // fixes a bug with stringlists comma-text saved as String...
-      tkString,
+        tkUString,
+        tkString,
         tkLString,
         tkWString: fINI.WriteString(Section, PropName, '"' + GetStrProp(Obj, PropName) + '"');
 
