@@ -887,6 +887,9 @@ Ver=1
 60026=Could not find corresponding header file
 60027=The compiler settings format of Embarcadero Dev-C++ has changed.<CR><CR>Please update your settings at Project >> Project Options >> Compiler and save your project.
 60028=The compiler set you have selected for this project, no longer exists.<CR>It will be substituted by the global compiler set.
+60029=File %s contains international characters. Do you wish to save this file in UTF8 encoding? If you choose "NO", the international characters will be lost.
+
+
 
 61001=Cannot open file %s
 61002=Cannot save file %s

@@ -121,6 +121,14 @@ type
     scsFinished // keystroke that triggered insertion has completed
     );
 
+  // Define how to handle international characters, when the Save or SaveAs called
+  TSymbolCorrectionEncoding = (
+    sceUserDefined, // to ask the user, if found international symbol, else remains of the original encoding
+    sceNever,       // never check Encoding, save as is
+    sceAuto,        // automatically correct without dialog, if found, else remains of the original encoding
+    sceFixedUTF8    // always set UTF8, without checking
+    );
+
   TEditor = class(TObject)
   private
     fInProject: boolean;
@@ -145,6 +153,7 @@ type
     fParenthCompleteState: TSymbolCompleteState;
     fArrayCompleteState: TSymbolCompleteState;
     fBraceCompleteState: TSymbolCompleteState;
+    fEncodingCorrection: TSymbolCorrectionEncoding;
     //fSingleQuoteCompleteState: TSymbolCompleteState;
     //fDoubleQuoteCompleteState: TSymbolCompleteState;
     procedure EditorKeyPress(Sender: TObject; var Key: Char);
@@ -177,6 +186,7 @@ type
     procedure DebugAfterPaint(ACanvas: TCanvas; AClip: TRect; FirstLine, LastLine: integer);
     function GetPageControl: TPageControl;
     procedure SetPageControl(Value: TPageControl);
+    procedure UpdateEncoding(const FileName: string);
   public
     constructor Create(const Filename: String; InProject, NewFile: boolean; ParentPageControl: TPageControl);
     destructor Destroy; override;
@@ -211,6 +221,7 @@ type
     property FunctionTip: TCodeToolTip read fFunctionTip;
     property CompletionBox: TCodeCompletion read fCompletionBox;
     property PageControl: TPageControl read GetPageControl write SetPageControl;
+    property EncodingCorrection: TSymbolCorrectionEncoding read fEncodingCorrection write fEncodingCorrection;
   end;
 
 implementation
@@ -908,6 +919,59 @@ begin
       fTabSheet.Caption := NewCaption;
     end;
   end;
+end;
+
+type
+  TSynEditStringListEx = class(TSynEditStringList);
+
+// similar functions "IsWideCharMappableToAnsi, IsUnicodeStringMappableToAnsi)
+// are placed in the module SynUnicode.pas. But those functions, without WC_NO_BEST_FIT_CHARS flag,
+// return incorrect results sometimes
+function _IsWideCharMappableToAnsi(const WC: WideChar): Boolean;
+var
+  UsedDefaultChar: BOOL;
+begin
+  WideCharToMultiByte(DefaultSystemCodePage, WC_NO_BEST_FIT_CHARS, PWideChar(@WC), 1, nil, 0, nil,
+    @UsedDefaultChar);
+  Result := not UsedDefaultChar;
+end;
+
+function _IsUnicodeStringMappableToAnsi(const WS: UnicodeString): Boolean;
+var
+  UsedDefaultChar: BOOL;
+begin
+  WideCharToMultiByte(DefaultSystemCodePage, WC_NO_BEST_FIT_CHARS, PWideChar(WS), Length(WS), nil, 0,
+    nil, @UsedDefaultChar);
+  Result := not UsedDefaultChar;
+end;
+
+
+procedure TEditor.UpdateEncoding(const FileName: string);
+var
+  lines: TSynEditStringListEx;
+  i: Integer;
+begin
+  lines := TSynEditStringListEx(fText.Lines);
+
+  if (fEncodingCorrection =  sceNever)
+      or not fText.Modified
+      or (lines.Encoding.CodePage = CP_UTF8) then exit;
+
+  if fEncodingCorrection = sceFixedUTF8 then
+    begin
+      lines.SetEncoding(TEncoding.UTF8);
+      exit;
+    end;
+
+  for I := 0 to Lines.Count-1 do
+    if _IsUnicodeStringMappableToAnsi(lines[i]) then
+      begin
+        if (fEncodingCorrection = sceAuto)
+            or (MessageDlg(Format(Lang[ID_MSG_FILESAVEENCODING], [FileName]),
+                                mtConfirmation, [mbYes, mbNo], 0) = mrYes) then
+          lines.SetEncoding(TEncoding.UTF8);
+        break;
+      end;
 end;
 
 procedure TEditor.SetFileName(const value: String);
@@ -1909,6 +1973,7 @@ begin
 
       // Save contents directly
       try
+        UpdateEncoding(fFileName);
         fText.Lines.SaveToFile(fFileName);
         fText.Modified := false;
       except
@@ -1979,6 +2044,7 @@ begin
 
   // Try to save to disk
   try
+    UpdateEncoding(fFileName);
     fText.Lines.SaveToFile(SaveFileName);
     fText.Modified := False;
     fNew := False;
